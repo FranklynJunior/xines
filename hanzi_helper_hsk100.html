@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hanzi Helper — HSK 1-2 Classroom Tool</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<style>
+  body{padding:18px;background:#f8f9fa;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+  .card{margin-bottom:14px;}
+  #writer { width: 260px; height:260px; border:1px solid #e9ecef; background:white; display:flex; align-items:center; justify-content:center; margin-bottom:8px;}
+  .pron-btn{cursor:pointer}
+  .teacher-mode{background:#fffbe6;border:1px solid #ffe58f;padding:12px;border-radius:6px}
+  .small-note{font-size:0.9rem;color:#6c757d}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1 class="mb-3">Hanzi Helper — HSK 1–2 Classroom Tool</h1>
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card p-3">
+        <label class="form-label">Search character (enter one character)</label>
+        <div class="input-group mb-2">
+          <input id="charInput" class="form-control" placeholder="e.g. 马 鼎 国 书 车" maxlength="2">
+          <button id="searchBtn" class="btn btn-primary">Search</button>
+        </div>
+        <div id="result" style="display:none;">
+          <h2 id="charLarge" style="font-size:56px;margin:0"></h2>
+          <div id="writer"></div>
+          <div class="d-flex gap-2 mb-2">
+            <button id="animateBtn" class="btn btn-outline-secondary btn-sm">Play stroke animation</button>
+            <button id="strokeBtn" class="btn btn-outline-secondary btn-sm">Show stroke count</button>
+            <button id="speakBtn" class="btn btn-outline-secondary btn-sm pron-btn">🔊 Pronounce</button>
+          </div>
+          <div class="card p-2 mb-2">
+            <strong>Pinyin:</strong> <span id="pinyin"></span><br>
+            <strong>English:</strong> <span id="english"></span><br>
+            <strong>Spanish:</strong> <span id="spanish"></span><br>
+            <strong>Examples:</strong> <span id="examples"></span>
+          </div>
+        </div>
+        <div id="noResult" class="alert alert-warning" style="display:none;">Character not found in the classroom dataset. You can add it via Teacher mode.</div>
+      </div>
+
+      <div class="card p-3 teacher-mode">
+        <h5>Teacher mode</h5>
+        <p class="small-note">Paste a comma- or newline-separated list of characters for the unit; students can load the unit list.</p>
+        <textarea id="teacherList" class="form-control mb-2" rows="4" placeholder="e.g.: 马,鼎,国,书,车"></textarea>
+        <div class="d-flex gap-2">
+          <button id="saveList" class="btn btn-success btn-sm">Save unit list</button>
+          <button id="loadList" class="btn btn-secondary btn-sm">Load unit list</button>
+          <button id="clearList" class="btn btn-danger btn-sm">Clear</button>
+        </div>
+        <div class="mt-2">
+          <strong>Current unit list:</strong> <span id="currentList">(not set)</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5>How to use</h5>
+        <ol>
+          <li>Type a single Chinese character and press "Search".</li>
+          <li>Click "Play stroke animation" to see the correct stroke order.</li>
+          <li>Click the speaker button to hear the pinyin (browser must support speech synthesis).</li>
+          <li>Teachers: save a unit list for class use; students load it to practice the unit's characters.</li>
+        </ol>
+        <hr>
+        <h6>Built-in dataset</h6>
+        <p class="small-note">This version includes ~100 common HSK1–2 characters and simple example words.</p>
+      </div>
+
+      <div class="card p-3">
+        <h6>Developer notes</h6>
+        <p class="small-note">Save this file as <code>hanzi_helper_hsk100.html</code> and open it in a modern browser. Hanzi Writer loads stroke data from its CDN; some characters may not have CDN stroke data. Teacher lists are stored locally (localStorage).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@2.1.2/dist/hanzi-writer.min.js"></script>
+<script>
+const DATA = {
+"你":{"pinyin":"nǐ","english":"you","spanish":"tú","examples":"你好 nǐ hǎo (hello)","strokes":7},
+"好":{"pinyin":"hǎo","english":"good","spanish":"bien","examples":"你好 nǐ hǎo (hello)","strokes":6},
+"我":{"pinyin":"wǒ","english":"I; me","spanish":"yo","examples":"我是学生 wǒ shì xuésheng (I am a student)","strokes":7},
+"他":{"pinyin":"tā","english":"he; him","spanish":"él","examples":"他是老师 tā shì lǎoshī (He is a teacher)","strokes":5},
+"她":{"pinyin":"tā","english":"she; her","spanish":"ella","examples":"她是医生 tā shì yīshēng (She is a doctor)","strokes":5},
+"们":{"pinyin":"men","english":"plural marker","spanish":"(pl.)","examples":"我们 wǒmen (we)","strokes":5},
+"是":{"pinyin":"shì","english":"to be","spanish":"ser/estar","examples":"我是学生 wǒ shì xuésheng (I am a student)","strokes":9},
+"不":{"pinyin":"bù","english":"not; no","spanish":"no","examples":"不是 bú shì (is not)","strokes":4},
+"了":{"pinyin":"le","english":"(modal particle)","spanish":"(partícula)","examples":"我吃了 wǒ chī le (I ate)","strokes":2},
+"在":{"pinyin":"zài","english":"at; in; on","spanish":"en/estar","examples":"我在学校 wǒ zài xuéxiào (I am at school)","strokes":6},
+"有":{"pinyin":"yǒu","english":"to have","spanish":"tener","examples":"我有一本书 wǒ yǒu yī běn shū (I have a book)","strokes":6},
+"这":{"pinyin":"zhè","english":"this","spanish":"esto","examples":"这是我的书 zhè shì wǒ de shū (This is my book)","strokes":7},
+"那":{"pinyin":"nà","english":"that","spanish":"eso","examples":"那个人 nà ge rén (that person)","strokes":6},
+"个":{"pinyin":"gè","english":"measure word","spanish":"clasificador","examples":"一个人 yī gè rén (one person)","strokes":3},
+"中":{"pinyin":"zhōng","english":"middle; China","spanish":"medio; China","examples":"中国 Zhōngguó (China)","strokes":4},
+"国":{"pinyin":"guó","english":"country; state","spanish":"país; estado","examples":"中国 Zhōngguó (China)","strokes":8},
+"人":{"pinyin":"rén","english":"person; people","spanish":"persona","examples":"中国人 Zhōngguó rén (Chinese person)","strokes":2},
+"年":{"pinyin":"nián","english":"year","spanish":"año","examples":"今年 jīnnián (this year)","strokes":6},
+"月":{"pinyin":"yuè","english":"month; moon","spanish":"mes; luna","examples":"下个月 xià gè yuè (next month)","strokes":4},
+"日":{"pinyin":"rì","english":"day; sun","spanish":"día; sol","examples":"今天 jīntiān (today)","strokes":4},
+"时":{"pinyin":"shí","english":"time; hour","spanish":"hora","examples":"几点 jǐ diǎn (what time)","strokes":7},
+"分":{"pinyin":"fēn","english":"minute; point","spanish":"minuto","examples":"十分钟 shí fēnzhōng (10 minutes)","strokes":4},
+"点":{"pinyin":"diǎn","english":"o'clock; dot","spanish":"punto; hora","examples":"两点 liǎng diǎn (2 o'clock)","strokes":8},
+"上":{"pinyin":"shàng","english":"up; on","spanish":"arriba","examples":"上课 shàngkè (attend class)","strokes":3},
+"下":{"pinyin":"xià","english":"down; below","spanish":"abajo","examples":"下课 xiàkè (class ends)","strokes":3},
+"说":{"pinyin":"shuō","english":"to speak; say","spanish":"decir","examples":"他说 tā shuō (he says)","strokes":9},
+"看":{"pinyin":"kàn","english":"to see; look","spanish":"ver; mirar","examples":"看书 kàn shū (read a book)","strokes":9},
+"听":{"pinyin":"tīng","english":"to listen","spanish":"escuchar","examples":"听音乐 tīng yīnyuè (listen to music)","strokes":7},
+"写":{"pinyin":"xiě","english":"to write","spanish":"escribir","examples":"写字 xiě zì (write characters)","strokes":5},
+"读":{"pinyin":"dú","english":"to read","spanish":"leer","examples":"读书 dú shū (read books)","strokes":14},
+"学":{"pinyin":"xué","english":"to learn; study","spanish":"aprender","examples":"学习 xuéxí (to study)","strokes":8},
+"教":{"pinyin":"jiāo","english":"to teach","spanish":"enseñar","examples":"教书 jiāoshū (to teach)","strokes":11},
+"书":{"pinyin":"shū","english":"book; write","spanish":"libro; escribir","examples":"书店 shūdiàn (bookstore)","strokes":4},
+"字":{"pinyin":"zì","english":"character; word","spanish":"carácter","examples":"汉字 Hànzì (Chinese characters)","strokes":6},
+"子":{"pinyin":"zǐ","english":"son; child","spanish":"hijo; niño","examples":"儿子 érzi (son)","strokes":3},
+"女":{"pinyin":"nǚ","english":"female; woman","spanish":"mujer","examples":"女孩 nǚhái (girl)","strokes":3},
+"男":{"pinyin":"nán","english":"male; man","spanish":"hombre","examples":"男人 nánrén (man)","strokes":7},
+"大":{"pinyin":"dà","english":"big; large","spanish":"grande","examples":"大学 dàxué (university)","strokes":3},
+"小":{"pinyin":"xiǎo","english":"small","spanish":"pequeño","examples":"小学 xiǎoxué (primary school)","strokes":3},
+"高":{"pinyin":"gāo","english":"tall; high","spanish":"alto","examples":"最高 zuì gāo (highest)","strokes":10},
+"低":{"pinyin":"dī","english":"low","spanish":"bajo","examples":"声音低 shēngyīn dī (low voice)","strokes":7},
+"长":{"pinyin":"cháng","english":"long","spanish":"largo","examples":"长短 chángduǎn (length)","strokes":8},
+"短":{"pinyin":"duǎn","english":"short","spanish":"corto","examples":"短文 duǎnwén (short essay)","strokes":7},
+"多":{"pinyin":"duō","english":"many; much","spanish":"mucho","examples":"很多 hěn duō (a lot)","strokes":6},
+"少":{"pinyin":"shǎo","english":"few; little","spanish":"poco","examples":"很少 hěn shǎo (rarely)","strokes":4},
+"新":{"pinyin":"xīn","english":"new","spanish":"nuevo","examples":"新年 xīnnián (New Year)","strokes":13},
+"老":{"pinyin":"lǎo","english":"old; experienced","spanish":"viejo","examples":"老师 lǎoshī (teacher)","strokes":6},
+"来":{"pinyin":"lái","english":"to come","spanish":"venir","examples":"我来了 wǒ lái le (I'm coming)","strokes":7},
+"去":{"pinyin":"qù","english":"to go","spanish":"ir","examples":"我要去学校 wǒ yào qù xuéxiào (I will go to school)","strokes":5},
+"走":{"pinyin":"zǒu","english":"to walk; leave","spanish":"caminar","examples":"走路 zǒulù (walk)","strokes":7},
+"坐":{"pinyin":"zuò","english":"to sit; take (transport)","spanish":"sentarse","examples":"坐车 zuò chē (take a car)","strokes":7},
+"吃":{"pinyin":"chī","english":"to eat","spanish":"comer","examples":"吃饭 chī fàn (eat meal)","strokes":6},
+"喝":{"pinyin":"hē","english":"to drink","spanish":"beber","examples":"喝水 hē shuǐ (drink water)","strokes":4},
+"爱":{"pinyin":"ài","english":"to love","spanish":"amar","examples":"我爱你 wǒ ài nǐ (I love you)","strokes":10},
+"喜欢":{"pinyin":"xǐhuān","english":"to like","spanish":"gustar","examples":"我喜欢音乐 wǒ xǐhuān yīnyuè (I like music)","strokes":12},
+"能":{"pinyin":"néng","english":"can; be able","spanish":"poder","examples":"我能 wǒ néng (I can)","strokes":10},
+"会":{"pinyin":"huì","english":"can; will","spanish":"saber; poder","examples":"我会说中文 wǒ huì shuō zhōngwén (I can speak Chinese)","strokes":6},
+"要":{"pinyin":"yào","english":"to want; need","spanish":"querer","examples":"我要水 wǒ yào shuǐ (I want water)","strokes":9},
+"看见":{"pinyin":"kànjiàn","english":"to see","spanish":"ver","examples":"我看见他 wǒ kànjiàn tā (I saw him)","strokes":10},
+"知道":{"pinyin":"zhīdào","english":"to know","spanish":"saber","examples":"我知道 wǒ zhīdào (I know)","strokes":11},
+"认识":{"pinyin":"rènshi","english":"to know; recognize","spanish":"conocer","examples":"我认识他 wǒ rènshi tā (I know him)","strokes":7},
+"工作":{"pinyin":"gōngzuò","english":"work; job","spanish":"trabajo","examples":"找工作 zhǎo gōngzuò (find a job)","strokes":8},
+"学校":{"pinyin":"xuéxiào","english":"school","spanish":"escuela","examples":"去学校 qù xuéxiào (go to school)","strokes":10},
+"老师":{"pinyin":"lǎoshī","english":"teacher","spanish":"profesor","examples":"老师好 lǎoshī hǎo (hello teacher)","strokes":9},
+"学生":{"pinyin":"xuésheng","english":"student","spanish":"estudiante","examples":"我是学生 wǒ shì xuésheng (I am a student)","strokes":8},
+"朋友":{"pinyin":"péngyou","english":"friend","spanish":"amigo","examples":"我的朋友 wǒ de péngyou (my friend)","strokes":8},
+"家":{"pinyin":"jiā","english":"home; family","spanish":"hogar","examples":"回家 huí jiā (go home)","strokes":10},
+"爸爸":{"pinyin":"bàba","english":"father","spanish":"papá","examples":"我爸爸 wǒ bàba (my father)","strokes":9},
+"妈妈":{"pinyin":"māma","english":"mother","spanish":"mamá","examples":"我妈妈 wǒ māma (my mother)","strokes":9},
+"名字":{"pinyin":"míngzi","english":"name","spanish":"nombre","examples":"你叫什么名字? nǐ jiào shénme míngzi? (What's your name?)","strokes":6},
+"钱":{"pinyin":"qián","english":"money","spanish":"dinero","examples":"多少钱 duōshǎo qián? (How much?)","strokes":10},
+"买":{"pinyin":"mǎi","english":"to buy","spanish":"comprar","examples":"买东西 mǎi dōngxī (buy things)","strokes":12},
+"卖":{"pinyin":"mài","english":"to sell","spanish":"vender","examples":"卖东西 mài dōngxī (sell things)","strokes":9},
+"便宜":{"pinyin":"piányi","english":"cheap","spanish":"barato","examples":"很便宜 hěn piányi (very cheap)","strokes":12},
+"贵":{"pinyin":"guì","english":"expensive","spanish":"caro","examples":"很贵 hěn guì (very expensive)","strokes":9},
+"天气":{"pinyin":"tiānqì","english":"weather","spanish":"clima","examples":"今天天气很好 jīntiān tiānqì hěn hǎo (The weather is good today)","strokes":10},
+"热":{"pinyin":"rè","english":"hot","spanish":"caliente","examples":"天气很热 tiānqì hěn rè (it's hot)","strokes":9},
+"冷":{"pinyin":"lěng","english":"cold","spanish":"frío","examples":"天气很冷 tiānqì hěn lěng (it's cold)","strokes":7},
+"水":{"pinyin":"shuǐ","english":"water","spanish":"agua","examples":"喝水 hē shuǐ (drink water)","strokes":4},
+"菜":{"pinyin":"cài","english":"vegetable; dish","spanish":"verdura; plato","examples":"吃菜 chī cài (eat vegetables)","strokes":11},
+"饭":{"pinyin":"fàn","english":"rice; meal","spanish":"comida","examples":"吃饭 chī fàn (eat meal)","strokes":8},
+"茶":{"pinyin":"chá","english":"tea","spanish":"té","examples":"喝茶 hē chá (drink tea)","strokes":9},
+"水果":{"pinyin":"shuǐguǒ","english":"fruit","spanish":"fruta","examples":"水果很甜 shuǐguǒ hěn tián (fruits are sweet)","strokes":8},
+"苹果":{"pinyin":"píngguǒ","english":"apple","spanish":"manzana","examples":"苹果很好吃 píngguǒ hěn hǎo chī (apples are tasty)","strokes":8},
+"医生":{"pinyin":"yīshēng","english":"doctor","spanish":"médico","examples":"去看医生 qù kàn yīshēng (go see a doctor)","strokes":9},
+"医院":{"pinyin":"yīyuàn","english":"hospital","spanish":"hospital","examples":"去医院 qù yīyuàn (go to the hospital)","strokes":11},
+"病":{"pinyin":"bìng","english":"illness; sick","spanish":"enfermedad","examples":"生病 shēng bìng (to be sick)","strokes":10},
+"开":{"pinyin":"kāi","english":"to open; to drive","spanish":"abrir; conducir","examples":"开车 kāi chē (drive)","strokes":5},
+"电":{"pinyin":"diàn","english":"electricity","spanish":"electricidad","examples":"电话 diànhuà (telephone)","strokes":5},
+"话":{"pinyin":"huà","english":"speech; words","spanish":"palabra","examples":"电话 diànhuà (telephone)","strokes":8},
+"电影":{"pinyin":"diànyǐng","english":"movie","spanish":"película","examples":"看电影 kàn diànyǐng (watch a movie)","strokes":11},
+"歌":{"pinyin":"gē","english":"song","spanish":"canción","examples":"唱歌 chàng gē (sing)","strokes":14},
+"音乐":{"pinyin":"yīnyuè","english":"music","spanish":"música","examples":"听音乐 tīng yīnyuè (listen to music)","strokes":9},
+"画":{"pinyin":"huà","english":"to draw; painting","spanish":"dibujar; pintura","examples":"画画 huà huà (to draw)","strokes":8},
+"好吃":{"pinyin":"hǎochī","english":"tasty","spanish":"delicioso","examples":"这个很好吃 zhège hěn hǎochī (This is tasty)","strokes":8},
+"买单":{"pinyin":"mǎidān","english":"to pay the bill","spanish":"pagar la cuenta","examples":"请买单 qǐng mǎidān (Please pay the bill)","strokes":11},
+"门":{"pinyin":"mén","english":"door; gate","spanish":"puerta","examples":"开门 kāi mén (open door)","strokes":3},
+"车":{"pinyin":"chē","english":"vehicle; car","spanish":"coche","examples":"开车 kāi chē (drive a car)","strokes":4},
+"火车":{"pinyin":"huǒchē","english":"train","spanish":"tren","examples":"坐火车 zuò huǒchē (take a train)","strokes":9},
+"天气":{"pinyin":"tiānqì","english":"weather","spanish":"clima","examples":"今天天气很好 jīntiān tiānqì hěn hǎo","strokes":10},
+"时间":{"pinyin":"shíjiān","english":"time","spanish":"tiempo","examples":"没有时间 méiyǒu shíjiān (no time)","strokes":10},
+"早上":{"pinyin":"zǎoshang","english":"morning","spanish":"mañana","examples":"早上好 zǎoshang hǎo (good morning)","strokes":11},
+"晚上":{"pinyin":"wǎnshang","english":"evening","spanish":"tarde/noche","examples":"晚上好 wǎnshang hǎo (good evening)","strokes":11},
+"今天":{"pinyin":"jīntiān","english":"today","spanish":"hoy","examples":"今天是星期一 jīntiān shì xīngqī yī (Today is Monday)","strokes":8},
+"明天":{"pinyin":"míngtiān","english":"tomorrow","spanish":"mañana","examples":"明天见 míngtiān jiàn (see you tomorrow)","strokes":8},
+"昨天":{"pinyin":"zuótiān","english":"yesterday","spanish":"ayer","examples":"昨天我很忙 zuótiān wǒ hěn máng (I was busy yesterday)","strokes":8},
+"星期":{"pinyin":"xīngqī","english":"week; day of week","spanish":"semana","examples":"星期天 xīngqī tiān (Sunday)","strokes":10},
+"钱包":{"pinyin":"qiánbāo","english":"wallet","spanish":"cartera","examples":"放钱包 fàng qiánbāo (put wallet)","strokes":12},
+"颜色":{"pinyin":"yánsè","english":"color","spanish":"color","examples":"喜欢的颜色 xǐhuān de yánsè (favorite color)","strokes":12},
+"红色":{"pinyin":"hóngsè","english":"red","spanish":"rojo","examples":"红色的花 hóngsè de huā (red flowers)","strokes":9},
+"绿色":{"pinyin":"lǜsè","english":"green","spanish":"verde","examples":"绿色草地 lǜsè cǎodì (green grass)","strokes":11},
+"蓝色":{"pinyin":"lánsè","english":"blue","spanish":"azul","examples":"蓝色的天 lán sè de tiān (blue sky)","strokes":11},
+"买东西":{"pinyin":"mǎi dōngxī","english":"to shop; buy things","spanish":"comprar cosas","examples":"去买东西 qù mǎi dōng xi (go shopping)","strokes":14},
+"东西":{"pinyin":"dōngxī","english":"things; stuff","spanish":"cosas","examples":"这个东西很好 zhège dōngxī hěn hǎo (This thing is good)","strokes":8},
+"衣服":{"pinyin":"yīfu","english":"clothes","spanish":"ropa","examples":"买衣服 mǎi yīfu (buy clothes)","strokes":6},
+"鞋子":{"pinyin":"xiézi","english":"shoes","spanish":"zapatos","examples":"穿鞋子 chuān xiézi (wear shoes)","strokes":12},
+"苹果":{"pinyin":"píngguǒ","english":"apple","spanish":"manzana","examples":"吃苹果 chī píngguǒ (eat apples)","strokes":8},
+"桌子":{"pinyin":"zhuōzi","english":"table","spanish":"mesa","examples":"桌子上有书 zhuōzi shàng yǒu shū (There are books on the table)","strokes":11},
+"椅子":{"pinyin":"yǐzi","english":"chair","spanish":"silla","examples":"坐在椅子上 zuò zài yǐzi shàng (sit on the chair)","strokes":13},
+"电脑":{"pinyin":"diànnǎo","english":"computer","spanish":"ordenador","examples":"电脑很贵 diànnǎo hěn guì (computer is expensive)","strokes":11},
+"手机":{"pinyin":"shǒujī","english":"mobile phone","spanish":"teléfono móvil","examples":"我的手机 wǒ de shǒujī (my phone)","strokes":10},
+"上网":{"pinyin":"shàngwǎng","english":"to go online","spanish":"conectarse","examples":"我上网 wǒ shàngwǎng (I go online)","strokes":10},
+"电影票":{"pinyin":"diànyǐng piào","english":"movie ticket","spanish":"entrada de cine","examples":"买电影票 mǎi diànyǐng piào (buy movie tickets)","strokes":16},
+"周末":{"pinyin":"zhōumò","english":"weekend","spanish":"fin de semana","examples":"周末好 zhōumò hǎo (Have a good weekend)","strokes":8},
+"游泳":{"pinyin":"yóuyǒng","english":"to swim","spanish":"nadar","examples":"会游泳 huì yóuyǒng (can swim)","strokes":12},
+"运动":{"pinyin":"yùndòng","english":"sports; exercise","spanish":"deporte","examples":"做运动 zuò yùndòng (do exercise)","strokes":12},
+"跑步":{"pinyin":"pǎobù","english":"to run","spanish":"correr","examples":"去跑步 qù pǎobù (go running)","strokes":9},
+"唱歌":{"pinyin":"chànggē","english":"to sing","spanish":"cantar","examples":"喜欢唱歌 xǐhuān chànggē (like singing)","strokes":11},
+"跳舞":{"pinyin":"tiàowǔ","english":"to dance","spanish":"bailar","examples":"喜欢跳舞 xǐhuān tiàowǔ (like dancing)","strokes":13},
+"礼物":{"pinyin":"lǐwù","english":"gift","spanish":"regalo","examples":"送礼物 sòng lǐwù (give a gift)","strokes":11},
+"生日":{"pinyin":"shēngrì","english":"birthday","spanish":"cumpleaños","examples":"生日快乐 shēng rì kuài lè (Happy birthday)","strokes":9}
+};
+
+// The DATA object contains ~100 entries designed for classroom use.
+
+// Helper functions for teacher list storage
+function getCurrentList(){
+  return JSON.parse(localStorage.getItem('hanzi_unit_list') || '[]');
+}
+function setCurrentList(arr){
+  localStorage.setItem('hanzi_unit_list', JSON.stringify(arr));
+  document.getElementById('currentList').textContent = arr.join(', ') || '(not set)';
+}
+setCurrentList(getCurrentList());
+
+let currentWriter = null;
+let currentChar = null;
+
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('charInput').addEventListener('keyup', function(e){ if(e.key==='Enter') doSearch(); });
+
+document.getElementById('animateBtn').addEventListener('click', function(){
+  if(currentWriter) currentWriter.animateCharacter();
+});
+document.getElementById('strokeBtn').addEventListener('click', function(){
+  if(!currentChar) return;
+  const info = DATA[currentChar] || null;
+  alert('Stroke count: ' + (info ? info.strokes || 'unknown' : 'unknown'));
+});
+document.getElementById('speakBtn').addEventListener('click', speakCurrent);
+
+document.getElementById('saveList').addEventListener('click', function(){
+  const raw = document.getElementById('teacherList').value.trim();
+  if(!raw){ setCurrentList([]); return; }
+  const arr = raw.split(/[\s,，;；\n]+/).filter(x=>x);
+  setCurrentList(arr);
+  alert('Unit list saved (local storage).');
+});
+document.getElementById('loadList').addEventListener('click', function(){
+  const arr = getCurrentList();
+  document.getElementById('teacherList').value = arr.join(', ');
+  alert('Unit list loaded into the editor.');
+});
+document.getElementById('clearList').addEventListener('click', function(){
+  if(confirm('Clear unit list?')){ localStorage.removeItem('hanzi_unit_list'); setCurrentList([]); document.getElementById('teacherList').value=''; }
+});
+
+function doSearch(){
+  const ch = document.getElementById('charInput').value.trim();
+  if(!ch){ document.getElementById('noResult').style.display='block'; document.getElementById('result').style.display='none'; return; }
+  currentChar = ch[0];
+  const info = DATA[currentChar];
+  if(!info){ document.getElementById('noResult').style.display='block'; document.getElementById('result').style.display='none'; return; }
+  document.getElementById('noResult').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('charLarge').textContent = currentChar;
+  document.getElementById('pinyin').textContent = info.pinyin || '';
+  document.getElementById('english').textContent = info.english || '';
+  document.getElementById('spanish').textContent = info.spanish || '';
+  document.getElementById('examples').textContent = info.examples || '';
+
+  // destroy previous writer
+  if(currentWriter){ currentWriter = null; document.getElementById('writer').innerHTML = ''; }
+
+  try{
+    currentWriter = HanziWriter.create('writer', currentChar, {width:260, height:260, padding:10});
+  }catch(e){
+    document.getElementById('writer').textContent = 'Stroke animation not available for this character.';
+  }
+}
+
+function speakCurrent(){
+  if(!currentChar) return;
+  const info = DATA[currentChar] || {pinyin:''};
+  const synth = window.speechSynthesis;
+  if(!synth) { alert('Speech synthesis not supported in this browser.'); return; }
+  const utter = new SpeechSynthesisUtterance(info.pinyin || currentChar);
+  utter.lang = 'zh-CN';
+  synth.cancel();
+  synth.speak(utter);
+}
+
+// Show an example on load
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('charInput').value = '你';
+  doSearch();
+});
+</script>
+</body>
+</html>
